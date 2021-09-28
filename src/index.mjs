@@ -49,6 +49,7 @@ var paused = false;
 //registered callback for loop
 var nopCallback = function(data, time) {};
 var callback = nopCallback;
+var headCallback = nopCallback;
 
 //Types that regression systems should handle
 //Describes the source of data so that regression systems may ignore or handle differently the various generating events
@@ -301,6 +302,43 @@ async function loop() {
 
     // [20200623 xk] callback to function passed into setGazeListener(fn)
     callback(latestGazeData, elapsedTime);
+
+    // Compute head direction by considering mesh in camera space.
+    var tracker = webgazer.getTracker();
+    if(tracker.positionsArray) { // is null at the beginning.
+
+      // Get points that are unaffected by facial expression.
+      var noseTipPoint = tracker.positionsArray[1]; // perhaps replace with chin.
+      var lowerRightEar = tracker.positionsArray[137];
+      var lowerLeftEar = tracker.positionsArray[366];
+      var betweenEyes = tracker.positionsArray[168];
+
+      // Define vectors by points.
+      var verticalVectorX = lowerRightEar[0] - lowerLeftEar[0];
+      var verticalVectorY = lowerRightEar[1] - lowerLeftEar[1];
+      var verticalVectorZ = lowerRightEar[2] - lowerLeftEar[2];
+      var horizontalVectorX = betweenEyes[0] - noseTipPoint[0];
+      var horizontalVectorY = betweenEyes[1] - noseTipPoint[1];
+      var horizontalVectorZ = betweenEyes[2] - noseTipPoint[2];
+
+      // Compute head direction as cross product of vectors.
+      var headDirX = (verticalVectorY * horizontalVectorZ) - (verticalVectorZ * horizontalVectorY);
+      var headDirY = (verticalVectorZ * horizontalVectorX) - (verticalVectorX * horizontalVectorZ);
+      var headDirZ = (verticalVectorX * horizontalVectorY) - (verticalVectorY * horizontalVectorX);
+
+      // Normalize the vector of head direction.
+      var len = Math.sqrt(headDirX*headDirX + headDirY*headDirY + headDirZ*headDirZ);
+      headDirX = headDirX / len;
+      headDirY = headDirY / len;
+      headDirZ = headDirZ / len;
+
+      // TODO: Compute rotation in degrees.
+
+      // Callback to report about head direction.
+      // headCallback("(" + headDirX + ", " + headDirY + ", " + headDirZ + ")", elapsedTime);
+
+      headCallback({x: headDirX, y: headDirY, z: headDirZ}, elapsedTime);
+    }
 
     if( latestGazeData ) {
       // [20200608 XK] Smoothing across the most recent 4 predictions, do we need this with Kalman filter?
@@ -1059,11 +1097,30 @@ webgazer.setGazeListener = function(listener) {
 };
 
 /**
+ * Sets a callback to be executed on every head direction event (currently all time steps)
+ * @param {function} listener - The callback function to call (it must be like function(data, elapsedTime))
+ * @return {webgazer} this
+ */
+ webgazer.setHeadListener = function(listener) {
+  headCallback = listener;
+  return webgazer;
+};
+
+/**
  * Removes the callback set by setGazeListener
  * @return {webgazer} this
  */
 webgazer.clearGazeListener = function() {
   callback = nopCallback;
+  return webgazer;
+};
+
+/**
+ * Removes the callback set by setHeadListener
+ * @return {webgazer} this
+ */
+ webgazer.clearHeadListener = function() {
+  headCallback = nopCallback;
   return webgazer;
 };
 
