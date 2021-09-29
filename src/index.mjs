@@ -303,23 +303,23 @@ async function loop() {
     // [20200623 xk] callback to function passed into setGazeListener(fn)
     callback(latestGazeData, elapsedTime);
 
-    // Compute head direction by considering mesh in camera space.
+    // Compute head pose by considering mesh in camera space.
     var tracker = webgazer.getTracker();
     if(tracker.positionsArray) { // is null at the beginning.
 
       // Get points that are unaffected by facial expression.
-      var noseTipPoint = tracker.positionsArray[1]; // perhaps replace with chin.
-      var lowerRightEar = tracker.positionsArray[137];
-      var lowerLeftEar = tracker.positionsArray[366];
+      var underNosePoint = tracker.positionsArray[2];
+      var lowerRightEar = tracker.positionsArray[93];
+      var lowerLeftEar = tracker.positionsArray[323];
       var betweenEyes = tracker.positionsArray[168];
 
       // Define vectors by points.
       var verticalVectorX = lowerRightEar[0] - lowerLeftEar[0];
       var verticalVectorY = lowerRightEar[1] - lowerLeftEar[1];
       var verticalVectorZ = lowerRightEar[2] - lowerLeftEar[2];
-      var horizontalVectorX = betweenEyes[0] - noseTipPoint[0];
-      var horizontalVectorY = betweenEyes[1] - noseTipPoint[1];
-      var horizontalVectorZ = betweenEyes[2] - noseTipPoint[2];
+      var horizontalVectorX = betweenEyes[0] - underNosePoint[0];
+      var horizontalVectorY = betweenEyes[1] - underNosePoint[1];
+      var horizontalVectorZ = betweenEyes[2] - underNosePoint[2];
 
       // Compute head direction as cross product of vectors.
       var headDirX = (verticalVectorY * horizontalVectorZ) - (verticalVectorZ * horizontalVectorY);
@@ -332,12 +332,30 @@ async function loop() {
       headDirY = headDirY / len;
       headDirZ = headDirZ / len;
 
-      // TODO: Compute rotation in degrees.
+      // Compute head rotations.
+      var headPitch = -(Math.asin(-headDirY) / Math.PI) * 180;
+      var headYaw = (Math.atan2(headDirX, headDirZ) / Math.PI) * 180;
+      var headRoll = 0; // TODO: Find out how to compute roll. Perhaps implement this: https://gamedev.stackexchange.com/questions/172147/convert-3d-direction-vectors-to-yaw-pitch-roll-angles
 
-      // Callback to report about head direction.
-      // headCallback("(" + headDirX + ", " + headDirY + ", " + headDirZ + ")", elapsedTime);
+      // Compute center of the head.
+      var headPosX = (lowerLeftEar[0] + lowerRightEar[0]) / 2;
+      var headPosY = (lowerLeftEar[1] + lowerRightEar[1]) / 2;
+      var headPosZ = (lowerLeftEar[2] + lowerRightEar[2]) / 2;
 
-      headCallback({x: headDirX, y: headDirY, z: headDirZ}, elapsedTime);
+      // Callback to report about head pose.
+      headCallback(
+        {
+          posX: headPosX,
+          posY: headPosY,
+          posZ: headPosZ,
+          dirX: headDirX,
+          dirY: headDirY,
+          dirZ: headDirZ,
+          yaw: headYaw,
+          pitch: headPitch,
+          roll: headRoll
+        },
+        elapsedTime);
     }
 
     if( latestGazeData ) {
@@ -1097,7 +1115,7 @@ webgazer.setGazeListener = function(listener) {
 };
 
 /**
- * Sets a callback to be executed on every head direction event (currently all time steps)
+ * Sets a callback to be executed on every head pose event (currently all time steps)
  * @param {function} listener - The callback function to call (it must be like function(data, elapsedTime))
  * @return {webgazer} this
  */
