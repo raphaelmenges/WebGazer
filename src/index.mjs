@@ -340,7 +340,7 @@ async function loop() {
       // Compute center of the head.
       var headPosX = (lowerLeftEar[0] + lowerRightEar[0]) / 2;
       var headPosY = (lowerLeftEar[1] + lowerRightEar[1]) / 2;
-      var headPosZ = (lowerLeftEar[2] + lowerRightEar[2]) / 2;
+      var headPosZ = (lowerLeftEar[2] + lowerRightEar[2]) / 2; // TODO: it is a bit strange that these are positive. According to documentation, should be negative.
 
       // Callback to report about head pose.
       headCallback(
